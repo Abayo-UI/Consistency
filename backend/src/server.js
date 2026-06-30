@@ -34,7 +34,7 @@ const __dirname = path.dirname(__filename);
 const allowedOrigins = [
   "http://localhost:5173", // Development frontend
   "http://localhost:5174",
-  "", // Production frontend
+  "https://consistency-production.up.railway.app", // Production frontend
 ];
 
 app.use(cors({
