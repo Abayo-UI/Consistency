@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
+const isLocalHost = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl || '')
+const fallbackBaseUrl = import.meta.env.DEV
+  ? 'http://localhost:3000'
+  : window.location.origin
+
+const API_BASE_URL = (import.meta.env.PROD && isLocalHost
+  ? fallbackBaseUrl
+  : (configuredBaseUrl || fallbackBaseUrl)).replace(/\/$/, '')
 
 const api = axios.create({
   baseURL: API_BASE_URL,
