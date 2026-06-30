@@ -65,7 +65,7 @@ export default function AppLayout({ children }) {
       )}
 
       <aside
-        className={`relative z-30 flex h-full flex-col border-r border-gray-100 bg-white py-4 shadow-sm transition-all duration-300 ${isSidebarOpen ? 'w-56' : 'w-20'} ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'} md:translate-x-0`}
+        className={`relative z-30 flex h-full shrink-0 flex-col border-r border-gray-100 bg-white py-4 shadow-sm transition-all duration-300 ${isMobile ? (isSidebarOpen ? 'w-56' : 'w-0') : (isSidebarOpen ? 'w-56' : 'w-16')} ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'} md:translate-x-0 overflow-hidden`}
       >
         <div className={`mb-6 flex items-center ${isSidebarOpen ? 'justify-between px-5' : 'justify-center px-3'}`}>
           {isSidebarOpen ? (
@@ -90,6 +90,9 @@ export default function AppLayout({ children }) {
               key={to}
               to={to}
               end={to === '/'}
+              onClick={() => {
+                if (isMobile) setIsSidebarOpen(false)
+              }}
               className={({ isActive }) =>
                 `flex items-center rounded-xl py-2 text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'} ${isActive ? 'bg-brand-50 text-brand-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`
               }
@@ -118,7 +121,7 @@ export default function AppLayout({ children }) {
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:py-6">
+        <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           {children}
         </div>
       </main>

@@ -111,7 +111,7 @@ export default function ExercisesPage() {
   const exerciseList = Array.isArray(exercises) && exercises.length ? exercises : (template?.items ?? [])
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 w-full">
       <PageHeader title="Exercises" subtitle="Mark today's exercises" />
 
       <div className="card p-5 space-y-4">
