@@ -8,6 +8,25 @@ function computeScoreIfMissing(body) {
   return scoreService.computePercent(body);
 }
 
+function mergeUpdateValue(currentValue, incomingValue) {
+  if (incomingValue === undefined) return currentValue;
+  if (incomingValue === null) return null;
+  if (Array.isArray(incomingValue)) return incomingValue;
+  if (typeof incomingValue === 'object' && typeof currentValue === 'object' && currentValue !== null && !Array.isArray(currentValue)) {
+    const merged = { ...(currentValue || {}) };
+    Object.entries(incomingValue).forEach(([key, value]) => {
+      if (value === undefined) return;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value) && typeof merged[key] === 'object' && merged[key] !== null && !Array.isArray(merged[key])) {
+        merged[key] = mergeUpdateValue(merged[key], value);
+      } else {
+        merged[key] = value;
+      }
+    });
+    return merged;
+  }
+  return incomingValue;
+}
+
 // Normalize frontend habit-style keys into backend growth/entertainment shape
 function normalizePayload(obj) {
   if (!obj) return obj;
@@ -245,6 +264,8 @@ export async function updateDailyLog(request, response) {
           const d = String(log.date.getUTCDate()).padStart(2, '0');
           log.day = `${y}-${m}-${d}`;
         }
+      } else if (['health', 'habits', 'growth', 'entertainment'].includes(key)) {
+        log[key] = mergeUpdateValue(log[key], request.body[key]);
       } else {
         log[key] = request.body[key];
       }
@@ -324,6 +345,8 @@ export async function updateDailyLogByDate(request, response) {
           const d = String(log.date.getUTCDate()).padStart(2, '0');
           log.day = `${y}-${m}-${d}`;
         }
+      } else if (['health', 'habits', 'growth', 'entertainment'].includes(key)) {
+        log[key] = mergeUpdateValue(log[key], request.body[key]);
       } else {
         log[key] = request.body[key];
       }

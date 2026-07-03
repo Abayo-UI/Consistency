@@ -4,11 +4,13 @@ import AuditLog from "../models/AuditLog.js";
 import DailyExercise from "../models/DailyExercise.js";
 
 const categories = {
-  // Abstinence now requires both abstained and no doom-scrolling to count
+  // Abstinence now requires both abstained and no doom-scrolling to count.
+  // Missing values should not erase an existing streak for older or partially recorded logs.
   abstinence: (log) => {
-    const abstained = log?.habits?.abstained === true;
-    const noDoom = log?.entertainment?.avoidDoomScrolling === true || log?.habits?.noDoomScrolling === true;
-    return abstained && noDoom;
+    const abstained = log?.habits?.abstained ?? true;
+    const noDoomValue = log?.entertainment?.avoidDoomScrolling ?? log?.habits?.noDoomScrolling ?? true;
+    const noDoom = noDoomValue === true;
+    return !!abstained && noDoom;
   },
   sugarFree: (log) => log?.habits?.sugarFree === true,
   exercise: (log) => {
