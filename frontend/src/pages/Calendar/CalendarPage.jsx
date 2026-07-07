@@ -90,14 +90,14 @@ export default function CalendarPage() {
 
       {/* Range selector and stats */}
       <div className="grid grid-cols-1 gap-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="input w-32">
+        <div className="flex flex-row flex-wrap items-center justify-end gap-2">
+          <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="input w-28 min-w-[7rem]">
             {yearOptions.map((year) => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
 
-          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="input w-44">
+          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="input w-36 min-w-[9rem]">
             <option value="whole-year">Whole year</option>
             {Array.from({ length: 12 }, (_, i) => {
               const monthLabel = format(new Date(2025, i, 1), 'MMMM')

@@ -144,13 +144,13 @@ export default function HabitsPage() {
             <SectionTitle>{selectedLabel} Habit Summary</SectionTitle>
             <p className="text-sm text-gray-500">Showing data through {format(toDate, 'MMM d, yyyy')}</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="input w-28">
+          <div className="flex flex-row flex-wrap items-center gap-2">
+            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="input w-28 min-w-[7rem]">
               {yearOptions.map((year) => (
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="input w-40">
+            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="input w-36 min-w-[9rem]">
               <option value="whole-year">Whole year</option>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(Number(selectedYear), i, 1)
