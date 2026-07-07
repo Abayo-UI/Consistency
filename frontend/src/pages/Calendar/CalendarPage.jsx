@@ -14,24 +14,22 @@ function scoreColor(score) {
 
 export default function CalendarPage() {
   const [current, setCurrent] = useState(new Date())
-  // month selector: '2026' means whole year, otherwise '2026-06' etc.
-  const [selectedRange, setSelectedRange] = useState(String(new Date().getFullYear()))
+  const currentYear = new Date().getFullYear()
+  const yearOptions = Array.from({ length: 2030 - 2025 + 1 }, (_, i) => String(2025 + i))
+  const [selectedYear, setSelectedYear] = useState(
+    String(currentYear >= 2025 && currentYear <= 2030 ? currentYear : 2025)
+  )
+  const [selectedMonth, setSelectedMonth] = useState('whole-year')
   const start = startOfMonth(current)
   const end = endOfMonth(current)
 
-  // compute from/to for stats fetch based on selectedRange
-  let statsFrom = format(startOfYear(new Date()), 'yyyy-MM-dd')
-  let statsTo = format(endOfYear(new Date()), 'yyyy-MM-dd')
-  if (selectedRange && selectedRange.length === 7) { // YYYY-MM
-    const parts = selectedRange.split('-').map(Number)
-    const s = startOfMonth(new Date(parts[0], parts[1] - 1, 1))
+  // compute from/to for stats fetch based on selectedYear + selectedMonth
+  let statsFrom = format(startOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
+  let statsTo = format(endOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
+  if (selectedMonth && selectedMonth !== 'whole-year') {
+    const monthIndex = Number(selectedMonth)
+    const s = startOfMonth(new Date(Number(selectedYear), monthIndex - 1, 1))
     const e = endOfMonth(s)
-    statsFrom = format(s, 'yyyy-MM-dd')
-    statsTo = format(e, 'yyyy-MM-dd')
-  } else if (selectedRange && selectedRange.length === 4) { // YYYY (whole year)
-    const y = Number(selectedRange)
-    const s = startOfYear(new Date(y,0,1))
-    const e = endOfYear(s)
     statsFrom = format(s, 'yyyy-MM-dd')
     statsTo = format(e, 'yyyy-MM-dd')
   }
@@ -92,15 +90,18 @@ export default function CalendarPage() {
 
       {/* Range selector and stats */}
       <div className="grid grid-cols-1 gap-4">
-        <div className="flex items-center justify-end">
-          <select value={selectedRange} onChange={e => setSelectedRange(e.target.value)} className="input w-44">
-            {/* year option */}
-            <option value={String(new Date().getFullYear())}>{String(new Date().getFullYear())} (Whole year)</option>
-            {/* months */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="input w-32">
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+
+          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="input w-44">
+            <option value="whole-year">Whole year</option>
             {Array.from({ length: 12 }, (_, i) => {
-              const m = new Date(new Date().getFullYear(), i, 1)
-              const val = format(m, 'yyyy-MM')
-              return <option key={val} value={val}>{format(m, 'MMMM yyyy')}</option>
+              const monthLabel = format(new Date(2025, i, 1), 'MMMM')
+              return <option key={i + 1} value={String(i + 1)}>{monthLabel}</option>
             })}
           </select>
         </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
+import { endOfMonth, endOfYear, format, isSameMonth, isSameYear, startOfMonth, startOfYear } from 'date-fns'
 import toast from 'react-hot-toast'
 import { dailyLogApi, streakApi, learningApi } from '../../api/services'
 import { useFetch, useMutation } from '../../hooks/useApi'
@@ -8,21 +8,47 @@ import { LoadingPage, ErrorBanner, PageHeader, SectionTitle, Spinner } from '../
 import BrainProgress from '../../components/BrainProgress'
 
 export default function HabitsPage() {
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
+  const [selectedYear, setSelectedYear] = useState(String(currentYear))
+  const [selectedMonth, setSelectedMonth] = useState(String(currentMonth))
+
+  const yearOptions = Array.from({ length: 2030 - 2025 + 1 }, (_, i) => String(2025 + i))
+
+  const selectedDate = new Date(Number(selectedYear), selectedMonth === 'whole-year' ? 0 : Number(selectedMonth) - 1, 1)
+  const from = selectedMonth === 'whole-year'
+    ? format(startOfYear(selectedDate), 'yyyy-MM-dd')
+    : format(startOfMonth(selectedDate), 'yyyy-MM-dd')
+  const toDate = selectedMonth === 'whole-year'
+    ? (isSameYear(selectedDate, today) ? today : endOfYear(selectedDate))
+    : (isSameMonth(selectedDate, today) ? today : endOfMonth(selectedDate))
+  const to = format(toDate, 'yyyy-MM-dd')
+  const selectedLabel = selectedMonth === 'whole-year'
+    ? `${selectedYear}`
+    : format(selectedDate, 'MMMM yyyy')
+
   const { data: streakData, loading: streakLoading } = useFetch(() => streakApi.get(), [])
   const { data: logsData, loading: logsLoading } = useFetch(
-    () => dailyLogApi.getRecent({ limit: 30 }), []
+    () => dailyLogApi.getRecent({ from, to, limit: 400 }), [from, to]
   )
   const { data: learnings, loading: learnLoading, refetch: refetchLearnings } = useFetch(
     () => learningApi.getAll({ limit: 10 }), []
   )
 
-  const [newLearning, setNewLearning] = useState({ title: '', note: '', type: 'general' })
+  const [newLearning, setNewLearning] = useState({ title: '', note: '', type: 'knowledge' })
   const [showLearnForm, setShowLearnForm] = useState(false)
 
   const { mutate: addLearning, loading: addingLearning } = useMutation(
-    (d) => learningApi.create(d),
+    (d) => learningApi.create({
+      type: d.type,
+      title: d.title,
+      notes: d.note,
+      description: d.note,
+      date: new Date().toISOString(),
+    }),
     {
-      onSuccess: () => { toast.success('Learning saved!'); setShowLearnForm(false); setNewLearning({ title: '', note: '', type: 'general' }); refetchLearnings() },
+      onSuccess: () => { toast.success('Learning saved!'); setShowLearnForm(false); setNewLearning({ title: '', note: '', type: 'knowledge' }); refetchLearnings() },
       onError: (m) => toast.error(m),
     }
   )
@@ -113,7 +139,26 @@ export default function HabitsPage() {
 
       {/* Habit completion grid */}
       <div className="card p-5">
-        <SectionTitle>30-Day Habit Summary</SectionTitle>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div>
+            <SectionTitle>{selectedLabel} Habit Summary</SectionTitle>
+            <p className="text-sm text-gray-500">Showing data through {format(toDate, 'MMM d, yyyy')}</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="input w-28">
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="input w-40">
+              <option value="whole-year">Whole year</option>
+              {Array.from({ length: 12 }, (_, i) => {
+                const monthDate = new Date(Number(selectedYear), i, 1)
+                return <option key={i + 1} value={String(i + 1)}>{format(monthDate, 'MMMM')}</option>
+              })}
+            </select>
+          </div>
+        </div>
         {logsLoading ? <div className="h-20 flex items-center justify-center text-gray-400 text-sm">Loading…</div> : (
           <div className="space-y-2">
             {habitStatsSorted.map(h => (
@@ -153,11 +198,8 @@ export default function HabitsPage() {
             <div>
               <label className="label">Type</label>
               <select className="input" value={newLearning.type} onChange={e => setNewLearning(l => ({ ...l, type: e.target.value }))}>
-                <option value="general">General</option>
-                <option value="python">Python</option>
-                <option value="mern">MERN Stack</option>
-                <option value="coding">Coding</option>
-                <option value="upskill">Upskilling</option>
+                <option value="knowledge">Knowledge</option>
+                <option value="upskilling">Upskilling</option>
               </select>
             </div>
             <div>

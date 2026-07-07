@@ -41,7 +41,7 @@ export default function AppLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="relative flex h-screen bg-gray-50 overflow-hidden">
       {isMobile && isSidebarOpen && (
         <button
           type="button"
@@ -65,7 +65,7 @@ export default function AppLayout({ children }) {
       )}
 
       <aside
-        className={`relative z-30 flex h-full shrink-0 flex-col border-r border-gray-100 bg-white py-4 shadow-sm transition-all duration-300 ${isMobile ? (isSidebarOpen ? 'w-56' : 'w-0') : (isSidebarOpen ? 'w-56' : 'w-16')} ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'} md:translate-x-0 overflow-hidden`}
+        className={`fixed inset-y-0 left-0 z-30 flex h-full flex-col border-r border-gray-100 bg-white py-4 shadow-sm transition-all duration-300 ${isMobile ? (isSidebarOpen ? 'w-56' : 'w-0') : (isSidebarOpen ? 'w-56' : 'w-16')} ${isMobile && !isSidebarOpen ? '-translate-x-full' : 'translate-x-0'} md:static md:translate-x-0 md:shrink-0 overflow-hidden`}
       >
         <div className={`mb-6 flex items-center ${isSidebarOpen ? 'justify-between px-5' : 'justify-center px-3'}`}>
           {isSidebarOpen ? (
@@ -121,7 +121,7 @@ export default function AppLayout({ children }) {
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div className={`mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 ${isMobile ? 'pt-16' : ''}`}>
           {children}
         </div>
       </main>

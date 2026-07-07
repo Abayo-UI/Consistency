@@ -3,30 +3,48 @@ import DailyLog from "../models/DailyLog.js";
 import AuditLog from "../models/AuditLog.js";
 import DailyExercise from "../models/DailyExercise.js";
 
+function readBooleanValue(log, path) {
+  const value = path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), log);
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function evaluateExercise(log) {
+  const habitValue = readBooleanValue(log, 'habits.exercise');
+  if (habitValue !== undefined) return habitValue;
+
+  const entries = Array.isArray(log?._exercises)
+    ? log._exercises
+    : Array.isArray(log?.exercises)
+      ? log.exercises
+      : [];
+
+  if (!entries.length) return undefined;
+  return entries.some((entry) => entry && entry.checked) ? true : false;
+}
+
 const categories = {
-  // Abstinence now requires both abstained and no doom-scrolling to count.
+  // Abstinence requires both abstained and no doom-scrolling to count.
   // Missing values should not erase an existing streak for older or partially recorded logs.
   abstinence: (log) => {
-    const abstained = log?.habits?.abstained ?? true;
-    const noDoomValue = log?.entertainment?.avoidDoomScrolling ?? log?.habits?.noDoomScrolling ?? true;
-    const noDoom = noDoomValue === true;
-    return !!abstained && noDoom;
+    const abstained = readBooleanValue(log, 'habits.abstained');
+    const noDoomValue = readBooleanValue(log, 'entertainment.avoidDoomScrolling') ?? readBooleanValue(log, 'habits.noDoomScrolling');
+
+    if (abstained === undefined || noDoomValue === undefined) return undefined;
+    return abstained && noDoomValue;
   },
-  sugarFree: (log) => log?.habits?.sugarFree === true,
-  exercise: (log) => {
-    if (log?.habits?.exercise === true) return true;
-    // prefer attached _exercises (populated by caller) then fallback to log.exercises for backward compat
-    if (Array.isArray(log?._exercises) && log._exercises.some(e => e && e.checked)) return true;
-    if (Array.isArray(log?.exercises) && log.exercises.some(e => e && e.checked)) return true;
-    return false;
+  sugarFree: (log) => readBooleanValue(log, 'habits.sugarFree'),
+  exercise: (log) => evaluateExercise(log),
+  earlyWake: (log) => readBooleanValue(log, 'habits.wokeBefore7'),
+  waterGoal: (log) => {
+    const waterLitres = Number(log?.health?.waterLitres ?? 0);
+    if (!Number.isFinite(waterLitres)) return undefined;
+    return waterLitres >= (process.env.WATER_GOAL_LITRES ? Number(process.env.WATER_GOAL_LITRES) : 2);
   },
-  earlyWake: (log) => log?.habits?.wokeBefore7 === true,
-  waterGoal: (log) => (log?.health?.waterLitres || 0) >= (process.env.WATER_GOAL_LITRES ? Number(process.env.WATER_GOAL_LITRES) : 2),
-  avoidDoomScrolling: (log) => log?.entertainment?.avoidDoomScrolling === true,
-  trabajo: (log) => log?.habits?.trabajo === true,
-  prayed: (log) => log?.habits?.prayed === true,
-  knowledge: (log) => log?.growth?.knowledge === true,
-  upskilling: (log) => log?.growth?.upskilling === true,
+  avoidDoomScrolling: (log) => readBooleanValue(log, 'entertainment.avoidDoomScrolling'),
+  trabajo: (log) => readBooleanValue(log, 'habits.trabajo'),
+  prayed: (log) => readBooleanValue(log, 'habits.prayed'),
+  knowledge: (log) => readBooleanValue(log, 'growth.knowledge'),
+  upskilling: (log) => readBooleanValue(log, 'growth.upskilling'),
 };
 
 function isSameDay(d1, d2) {
@@ -78,9 +96,12 @@ export async function updateFromDailyLog(userId, date, dailyLog) {
         const bucket = streak[category];
         const lastUpdated = bucket?.lastUpdated;
         const lastUpdatedIsSameDayAsLog = isSameDay(lastUpdated, date);
-        const isLogForToday = isSameDay(date, now);
 
         const oldValue = { current: bucket.current, longest: bucket.longest, lastUpdated: bucket.lastUpdated };
+
+        if (achieved === undefined) {
+          continue;
+        }
 
         if (achieved) {
           // If already recorded today and current > 0, do nothing (already counted)
@@ -101,20 +122,12 @@ export async function updateFromDailyLog(userId, date, dailyLog) {
             const newValue = { current: bucket.current, longest: bucket.longest, lastUpdated: bucket.lastUpdated };
             await recordAudit(userId, category, dailyLog._id, oldValue, newValue, "auto", `Incremented from dailyLog ${dailyLog._id}`);
           }
-        } else {
-          // not achieved
-          // Do not reset streak for today's provisional entries (user may fill later in the day)
-          if (isLogForToday) {
-            // no-op for today's partial/provisional logs
-          } else if (lastUpdatedIsSameDayAsLog && bucket.current === 0) {
-            // no-op if already reset today
-          } else if (bucket.current && bucket.current !== 0) {
-            // reset streak for past days or definitive logs
-            bucket.current = 0;
-            bucket.lastUpdated = now;
-            const newValue = { current: bucket.current, longest: bucket.longest, lastUpdated: bucket.lastUpdated };
-            await recordAudit(userId, category, dailyLog._id, oldValue, newValue, "auto", `Reset from dailyLog ${dailyLog._id}`);
-          }
+        } else if (bucket.current && bucket.current !== 0) {
+          // explicit miss should break the streak immediately
+          bucket.current = 0;
+          bucket.lastUpdated = now;
+          const newValue = { current: bucket.current, longest: bucket.longest, lastUpdated: bucket.lastUpdated };
+          await recordAudit(userId, category, dailyLog._id, oldValue, newValue, "auto", `Reset from dailyLog ${dailyLog._id}`);
         }
       } catch (inner) {
         console.error("updateFromDailyLog category error", category, inner);
@@ -142,6 +155,9 @@ export async function reconcileUserStreak(userId) {
     for (const log of logs) {
       for (const [category, predicate] of Object.entries(categories)) {
         const achieved = predicate(log);
+        if (achieved === undefined) {
+          continue;
+        }
         if (achieved) {
           computed[category].current += 1;
           if (computed[category].current > computed[category].longest) computed[category].longest = computed[category].current;
