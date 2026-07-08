@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, parseISO, startOfYear, endOfYear } from 'date-fns'
 import { Link } from 'react-router-dom'
 import { dailyLogApi } from '../../api/services'
@@ -12,6 +12,18 @@ function scoreColor(score) {
   return '#ef4444'
 }
 
+function getLogDayKey(log) {
+  const rawDate = log?.day || log?.date || ''
+  if (typeof rawDate === 'string') {
+    const trimmed = rawDate.slice(0, 10)
+    return trimmed.length === 10 ? trimmed : ''
+  }
+  if (rawDate instanceof Date) {
+    return format(rawDate, 'yyyy-MM-dd')
+  }
+  return ''
+}
+
 export default function CalendarPage() {
   const [current, setCurrent] = useState(new Date())
   const currentYear = new Date().getFullYear()
@@ -19,29 +31,36 @@ export default function CalendarPage() {
   const [selectedYear, setSelectedYear] = useState(
     String(currentYear >= 2025 && currentYear <= 2030 ? currentYear : 2025)
   )
-  const [selectedMonth, setSelectedMonth] = useState('whole-year')
+  const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1))
   const start = startOfMonth(current)
   const end = endOfMonth(current)
 
-  // compute from/to for stats fetch based on selectedYear + selectedMonth
-  let statsFrom = format(startOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
-  let statsTo = format(endOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
-  if (selectedMonth && selectedMonth !== 'whole-year') {
-    const monthIndex = Number(selectedMonth)
-    const s = startOfMonth(new Date(Number(selectedYear), monthIndex - 1, 1))
-    const e = endOfMonth(s)
-    statsFrom = format(s, 'yyyy-MM-dd')
-    statsTo = format(e, 'yyyy-MM-dd')
-  }
+  useEffect(() => {
+    if (selectedMonth && selectedMonth !== 'whole-year') {
+      const nextCurrent = new Date(Number(selectedYear), Number(selectedMonth) - 1, 1)
+      if (nextCurrent.getFullYear() !== current.getFullYear() || nextCurrent.getMonth() !== current.getMonth()) {
+        setCurrent(nextCurrent)
+      }
+    }
+  }, [selectedMonth, selectedYear])
 
-  // calendar fetch range (based on currently visible month)
+  // fetch the selected year broadly, then filter down to the chosen month on the client
+  const statsYearStart = format(startOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
+  const statsYearEnd = format(endOfYear(new Date(Number(selectedYear), 0, 1)), 'yyyy-MM-dd')
+  const statsFrom = selectedMonth && selectedMonth !== 'whole-year'
+    ? format(startOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1, 1)), 'yyyy-MM-dd')
+    : statsYearStart
+  const statsTo = selectedMonth && selectedMonth !== 'whole-year'
+    ? format(endOfMonth(new Date(Number(selectedYear), Number(selectedMonth) - 1, 1)), 'yyyy-MM-dd')
+    : statsYearEnd
+
   const calendarFrom = format(start, 'yyyy-MM-dd')
   const calendarTo = format(end, 'yyyy-MM-dd')
 
-  // Fetch stats (controlled by the dropdown)
+  // Fetch stats for the selected year, then filter to the selected month locally
   const { data: statsData, loading: statsLoading, error: statsError, refetch: statsRefetch } = useFetch(
-    () => dailyLogApi.getRecent({ from: statsFrom, to: statsTo, limit: 400 }),
-    [statsFrom, statsTo]
+    () => dailyLogApi.getRecent({ from: statsYearStart, to: statsYearEnd, limit: 1000 }),
+    [statsYearStart, statsYearEnd]
   )
 
   // Fetch calendar data (always based on the visible month)
@@ -50,11 +69,20 @@ export default function CalendarPage() {
     [calendarFrom, calendarTo]
   )
 
-  const statsLogs = statsData?.logs ?? statsData ?? []
+  const allStatsLogs = statsData?.logs ?? statsData ?? []
+  const statsLogs = useMemo(() => {
+    return allStatsLogs.filter((log) => {
+      const dayKey = getLogDayKey(log)
+      return dayKey >= statsFrom && dayKey <= statsTo
+    })
+  }, [allStatsLogs, statsFrom, statsTo])
 
   const logs = calData?.logs ?? calData ?? []
   const logsByDate = {}
-  logs.forEach(l => { logsByDate[l.date?.slice(0, 10)] = l })
+  logs.forEach((l) => {
+    const dateKey = getLogDayKey(l)
+    if (dateKey) logsByDate[dateKey] = l
+  })
 
   const days = eachDayOfInterval({ start, end })
 

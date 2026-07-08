@@ -54,6 +54,11 @@ function isSameDay(d1, d2) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function isTodayDate(value, reference = new Date()) {
+  if (!value) return false;
+  return isSameDay(value, reference);
+}
+
 async function recordAudit(userId, category, referenceId, oldValue, newValue, source = "auto", note = "") {
   try {
     await AuditLog.create({ userId, entity: "streak", category, referenceId, oldValue, newValue, source, note });
@@ -71,6 +76,7 @@ export async function updateFromDailyLog(userId, date, dailyLog) {
     }
 
     const now = new Date();
+    const isTodayLog = isTodayDate(date, now);
 
     // attach today's exercises to the dailyLog object so predicates can check them
     try {
@@ -100,6 +106,11 @@ export async function updateFromDailyLog(userId, date, dailyLog) {
         const oldValue = { current: bucket.current, longest: bucket.longest, lastUpdated: bucket.lastUpdated };
 
         if (achieved === undefined) {
+          continue;
+        }
+
+        if (isTodayLog) {
+          // Keep today's provisional updates from wiping an existing streak before the day is finalized.
           continue;
         }
 
@@ -152,7 +163,12 @@ export async function reconcileUserStreak(userId) {
       computed[category] = { current: 0, longest: 0 };
     }
 
+    const today = new Date();
     for (const log of logs) {
+      if (isTodayDate(log?.date, today)) {
+        continue;
+      }
+
       for (const [category, predicate] of Object.entries(categories)) {
         const achieved = predicate(log);
         if (achieved === undefined) {
